@@ -8,7 +8,7 @@ require 5.005_62;
 use strict;
 use warnings;
 
-our $VERSION = '0.04';
+our $VERSION = sprintf '%s', q{$Revision: 1.2 $} =~ /\S+\s+(\S+)/ ;
 
 # author , optional
 # denormalize on label
@@ -206,7 +206,7 @@ __END__
 
 =head1 NAME
 
-SQL::Catalog - test, label, store, search and retrieve SQL queries
+SQL::Catalog - label queries, db independant SQL, separate Perl and SQL
 
 =head1 SYNOPSIS
 
