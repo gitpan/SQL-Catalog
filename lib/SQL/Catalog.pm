@@ -513,6 +513,10 @@ SQL::Catalog does.
 =item * L<Ima::DBI|Ima::DBI> provides an object-oriented interface to
 connection and sql management.
 
+=item * L<SQL::Library|SQL::Library>
+
+=item * L<Data::Phrasebook|Data::Phrasebook>
+
 =item * L<DBIx::Librarian|DBIx::Librarian> provides labelled access to 
 queries and shortens the prepare-execute ritual a bit.
 

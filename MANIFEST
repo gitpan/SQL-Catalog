@@ -19,3 +19,4 @@ sql_lookup
 sql_register
 sql_test
 t/001-make-tables.t
+META.yml                                 Module meta-data (added by MakeMaker)

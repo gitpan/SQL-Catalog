@@ -14,8 +14,8 @@
 	(
          'Pg' => 
         {
-         'UserName' => 'postgres',
          'DataSource' => 'dbi:Pg:dbname=mydb',
+         'UserName' => 'postgres',
          'Password' => '',
          'name' => 'Postgres',
         },

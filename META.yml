@@ -1,0 +1,15 @@
+# http://module-build.sourceforge.net/META-spec.html
+#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
+name:         SQL-Catalog
+version:      2.4
+version_from: lib/SQL/Catalog.pm
+installdirs:  site
+requires:
+    Cache::Cache:                  0.99
+    DBI:                           1.19
+    DBIx::AnyDBD:                  1.94
+    PApp::SQL:                     0.124
+    SQL::Statement:                0.1
+
+distribution_type: module
+generated_by: ExtUtils::MakeMaker version 6.17
