@@ -1,8 +1,8 @@
 Catalog.pm
 Changes
-db-creation/create-database.pl
 db-creation/informix.sql
 db-creation/postgresql.sql
+db-creation/postgresql.renderer
 MANIFEST
 Makefile.PL
 README

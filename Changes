@@ -1,4 +1,10 @@
+2001-10-28  Terrence Brannon  <metaperl@localhost>
+
+	* 0.04  Sun Oct 28 06:05:36 PST 2001
+        - major switch to two denormalized tables as opposed to one
+
 Revision history for Perl extension SQL::Catalog.
+
 
 0.01  Wed Oct 24 08:41:01 2001
 	- original version; created by h2xs 1.1.1.4 with options

@@ -13,10 +13,10 @@ INSTALLATION AND USAGE INSTRUCTIONS
     * Use or create and contribute a script to create a table named
     sql_catalog. Scripts for Postgresql and Informix are provided.
     * Set your environmental variables to connect to the database where the
-    sql_catalog table was created. here are mine. And yes, the username and
-    password are empty strings in my case.
+    sql_catalog table was created. here are mine. And yes, the password is
+    an empty string in my case.
          setenv SQL_CATALOG_DSN dbi:Pg:dbname=mydb
-         setenv SQL_CATALOG_USR 
+         setenv SQL_CATALOG_USR postgres
          setenv SQL_CATALOG_PAS 
 
     * Copy the sql_* scripts to a place on your `$PATH'

@@ -8,8 +8,10 @@ require 5.005_62;
 use strict;
 use warnings;
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
+# author , optional
+# denormalize on label
 
 # Preloaded methods go here.
 sub load_sql_from {
@@ -42,7 +44,8 @@ sub parse_sql {
      SQL::Statement->new($sql, $parser);
    };
    if ($@) {
-       die "Cannot parse statement: $@";
+       die 
+	   "Cannot parse statement (statement cannot end with semicolon): $@";
    }
 
     my %pa;
@@ -64,9 +67,24 @@ sub parse_sql {
     \%pa;
 }
 
+sub allowable {
+    my ($key,$val) = @_;
+    my %allowable = 
+	( label => sub { $_[0] !~ /\s/ } );
+    $allowable{$key}->($val);
+}
+
 sub register {
 
-    my ($class,$file,$label) = @_;
+    my ($class,$file,$label,$comments) = @_;
+
+    $file and $label and $comments or
+	die<<EOD;
+file, label, and comments are all required fields to register a query
+EOD
+
+    allowable label => $label or die 'label cannot contain whitespace';
+
 
     my $sql = load_sql_from $file;
 
@@ -74,29 +92,44 @@ sub register {
  
     my $parse = parse_sql $sql;
 
-    my $tables = join ',', map { $_->{table} } @{$parse->{tables}};
-    my $columns = 
-	join ',', 
-	map { $_->{table} . '.' . $_->{column} } @{$parse->{columns}};
-
    #   die Dumper(\@columns, \@tables, $params, \$command);
  
-   my $insert='insert into sql_catalog
-       (label,  query,  tables, columns, cmd, phold)
-values (  ?  ,   ?   ,    ?   ,    ?   ,  ? ,   ?  )';
     
    my $dbh = db_handle;
 
-#   warn $insert;
-#   warn "$label, $sql, $tables, $columns, $command, $params";
+    my $insert='insert into sql_catalog
+       (label, cmd, phold, author, query, comments)
+values (    ?,   ?,     ?,      ?,     ?,        ?)';
 
-   my $sth = $dbh->prepare($insert);
+   my $insert_ft='insert into sql_catalog_ft
+       (label_ft,  tbl, col)
+values (       ?,   ? ,   ?)';
 
-   $sth->execute
-       ($label, $sql, 
-	$tables, $columns, $parse->{command}, $parse->{params});
 
-    print "[$label] inserted as\n[$sql]";
+   my $sth_primary = $dbh->prepare($insert);
+   my $sth_ft      = $dbh->prepare($insert_ft);
+
+    my $uname = getpwuid($<);
+
+    warn sprintf "BIND %s . %s . %s . %s . %s . %s   ",
+    ($label, $parse->{command}, $parse->{params}, 
+	$uname, $sql, $comments);
+
+   $sth_primary->execute 
+       ($label, $parse->{command}, $parse->{params}, 
+	$uname, $sql, $comments);
+   
+  
+   for my $column (@{$parse->{columns}}) {	
+       $sth_ft->execute($label, $column->{table}, $column->{column});
+   }	
+
+    open R, ">register.log" or die "can't open register:!";
+
+    my $log = "[$label] inserted as\n[$sql]\n";
+
+    print R $log;
+    print $log;
 
     $dbh->disconnect;
    
@@ -180,18 +213,18 @@ SQL::Catalog - test, label, store, search and retrieve SQL queries
  shell% cd sql_lair/city,date/weather/1/
 
  shell% cat concrete.sql 
- select city, date from weather where temp_lo < 20;
+ select city, date from weather where temp_lo < 20 and temp_hi > 40 LIMIT 10
  shell% sql_test concrete.sql 
  shell% cat testexec.out # see results of prepare, execute on this
 
  shell% cat abstract.sql
- select city, date from weather where temp_lo < ?;
+ select city, date from weather where temp_lo < ? and temp_hi > ?
  shell% sql_test abstract.sql 55 # send in placeholder value
  shell% cat testexec.out # to see results... looks good
 
- shell% sql_register abstract.sql basic_weather
+ shell% sql_register abstract.sql basic_weather "basic weather query"
  [hi_and_low] inserted as 
- [select city from weather where temp_lo > ? and temp_hi > ? LIMIT 10]
+ [select city from weather where temp_lo < ? and temp_hi > ?]
 
  ... then in a Perl program (e.g. test.pl in this distribution)
  my $dbh = SQL::Catalog->db_handle; # optional - get the handle as you please
@@ -205,21 +238,61 @@ SQL::Catalog - test, label, store, search and retrieve SQL queries
 =head1 DESCRIPTION
 
 Over time, it has become obvious that a few things about SQL queries are 
-necessary. One, you want to be able to get a query by a label. Two, you want 
-to be able to look through old queries to see if someone else has written
-one similar to what you want. Three, you want the database guru to develop
-queries on his own and be able to register them for your use without 
-interfering with him. Four, you want to be able to answer questions such as
-"what queries are doing a select on such-and-such tables".
+necessary. And before this module, time-consuming:
 
-Well, wait no longer, for your solution has arrived.
+=over 4
+
+=item * database independence
+
+You may at some time to be forced to deploy an application which has to
+work on more than one database. Prior to SQL::Catalog, there were two
+choices - DBIx::AnyDBD and DBIx::Recordset. With SQL::Catalog, you
+simply store the SQL for a particular label in each database and you
+are done.
+
+=item * labelled queries
+
+A large, well-scaled business database application has several layers
+with simple well-defined tasks. The layer just above the database does
+database things. It inserts. It retrieves. It updates. etc, etc. Call
+this the database application layer. Just above the database
+application layer is the business object layer. These are conceptual
+entities whose data structures are program data structures. For
+permanent stores, they make simple, technology-agnostic requests of
+the database application layer, which then takes the business data and 
+stores it as database data. Then above this we have the application layer. And
+this layer makes use of business objects, ldap objects, web objects,
+what have you, to string together a complete application.
+
+=item * queryable queries
+
+That's right, you want to be able to query on the queries
+themselves. It makes it easy to do a study on
+just what queries are doing what.
+
+=item * separation of concerns
+
+By now, everyone has heard that phrase: "my templating module is the
+best because it allows the HTML designer to work separately from the
+Perl programmer." Well, given that databases are another foreign
+technology to Perl proper, it only makes sense that the same ability
+that is afforded to HTML designers be afforded to SQL programmers.
+
+=item * centralization of queries
+
+This makes it easy for someone to see how 
+you did something so they can imitate.
+
+=back
+
+SQL::Catalog addresses all of these issues.
 
 =head1 COMMON STEPS TO USAGE
 
 =head2 Develop your concrete query in a db shell
 
 The first step to developing a database query is to play around at the 
-db shell. In this case, you normally dont have any placeheld values. You just
+db shell. In this case, you normally don't have any placeheld values. You just
 keep mucking with the query until it gives you what you want.
 
 When you finally get what you want, save it in a file, say C<concrete.sql> for 
@@ -278,26 +351,44 @@ creation and database use.
 Right now we have schema creation and SQL code which works for Informix and
 Postgresql and welcome more.
 
-The queries are stored in this table 
-(this file is C<db-creation/postgresql.sql>):
+The queries are stored in these tables
+(this file is C<db-creation/postgresql.renderer>):
 
  CREATE TABLE sql_catalog (
-        label varchar(32) ,  # the label queries are stored and looked up with
-        tables varchar(255) , # the tables used in the query
-        columns varchar(255) , # the columns used in the query
-        cmd varchar(40) , # type of sql (SELECT, INSERT, UPDATE, etc)
-        phold int4,  # number of placeholders in the query
-        query varchar(65535) , # the query to be stored
-        CONSTRAINT sql_catalog_pkey PRIMARY KEY (label) # indexing
- );
+        label varchar(80) ,
+        cmd varchar(40) ,
+        phold int4 ,
+        author varchar(40) ,
+        query varchar(65536) ,
+        comments varchar(1600) ,
+        PRIMARY KEY (label)
+			  );
+CREATE TABLE sql_catalog_ft (
+        label_ft varchar(80) ,
+        tbl varchar(255) ,
+        col varchar(255) ,
+        PRIMARY KEY (label_ft)
+			     );
 
-Query field omitted for brevity. It has (wouldya guess) the SQL query.
 
-  mydb=# select label,cmd,columns,tables,phold from sql_catalog;
-      label     |  cmd   | columns                          | tables  | phold 
- ---------------+--------+---------------------------------------------------
- weather_hi    | SELECT | weather.city,weather.date        | weather |     1
- hi_and_low    | SELECT | weather.city                     | weather |     2
+And here is the result of ONE sql_register:
+
+ mydb=# select * from sql_catalog_ft;
+ label_ft |   tbl   |   col   
+ ----------+---------+---------
+ basic_weather     | weather | city
+ basic_weather     | weather | date
+ basic_weather     | weather | temp_lo
+ basic_weather     | weather | temp_hi
+ (4 rows)
+
+ mydb=# select * from sql_catalog;
+ label |  cmd   | phold |  author  |                                    query                                     | comments 
+ -------+--------+-------+----------+------------------------------------------------------------------------------+----------
+ basic_weather  | SELECT |     1 | metaperl | select city, date, temp_lo, temp_hi from weather where temp_lo < ? LIMIT 40
+ | ahah
+ (1 row)
+
 
 =head1 NOTES
 
@@ -316,6 +407,8 @@ a completely different machine. The idea is that SQL::Catalog connects to
 the table sql_catalog based on its C<DSN> value (see README) while your
 data database connects based on a different DSN.
 
+=item * When dropping these tables, you will also have to drop one index
+
 =back
 
 =head1 AUTHOR
@@ -326,11 +419,15 @@ Substantial contribution (and ass-kicking) by Jonathan Leffler.
 
 =head1 SEE ALSO
 
+There are several related modules on CPAN. Each do some of what
+SQL::Catalog does.
+
 =over 4
 
-=item * L<Class::Phrasebook::SQL>. Performs a similar function. It
-stores a "phrasebook" of SQL in XML files. Querying can be done with any
-standard XML processor.
+=item * Class::Phrasebook::SQL stores a "phrasebook" of SQL in XML
+files. Allows for retrieval of queries via a convenient API. The
+querying of queries that SQL::Catalog supports can be done using an
+XML processor along with SQL::Statement.
 
 =item * L<DBIx::SearchProfiles>. Does query labeling and also has some
 convenience functions for query retrieval. It does not store the SQL
@@ -338,11 +435,15 @@ in a database or make it searchable by table, column, or number of
 placeholders. Your standard Perl data munging techniques would be the way to
 do statistical analysis of your queries.
 
-=item * http://perlmonks.org/index.pl?node_id=96268&lastnode_id=96273
+=item * Queries stored in Perl modules
 
 A different approach is suggested using Perl modules. Interesting idea.
 
+http://perlmonks.org/index.pl?node_id=96268&lastnode_id=96273
+
 =item * "Leashing DBI"
+
+Various issues in building applications on top of DBI.
 
 http://perlmonks.org/index.pl?node=Leashing%20DBI&lastnode_id=96268
 

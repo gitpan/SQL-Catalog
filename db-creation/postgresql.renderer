@@ -1,0 +1,67 @@
+#!/usr/bin/perl
+
+use warnings;
+use strict;
+use DBIx::Renderer ':all';
+
+use constant TYPE_NAME     => VARCHAR(40);
+use constant TYPE_PASSWORD => ( VARCHAR(20), NOTNULL );
+use constant TYPE_MANDNAME => ( VARCHAR(255), NOTNULL );  # mandatory name
+use constant TYPE_PRICE    => ( FLOAT4, NOTNULL, DEFAULT(0) );
+
+my $struct = [
+	sql_catalog => 
+	      [
+	       label    => { VARCHAR(80), PK, NOTNULL },
+	       cmd      => { VARCHAR(40),  NOTNULL },
+	       phold    => { INT4, NOTNULL },
+	       author   => { VARCHAR (40),  NOTNULL },
+	       query    => { VARCHAR(65536), NOTNULL },
+	       comments => { VARCHAR(1600),  NOTNULL }
+	       ],
+	sql_catalog_ft => 
+	      [
+	       label_ft => { VARCHAR(80), PK, NOTNULL },
+	       tbl      => { VARCHAR(255),  NOTNULL },
+	       col      => { VARCHAR(255),  NOTNULL },
+	       ],
+	      ];
+
+# use Data::Dumper; print Dumper($struct); exit;
+
+my $renderer = DBIx::Renderer::get_renderer('Postgres');
+print $renderer->create_schema($struct);
+
+__END__
+
+=head1 NAME
+
+postgresql.renderer - DBIx::Renderer program for SQL::Catalog
+
+=head1 SYNOPSIS
+
+perl postgresql.renderer | psql
+
+=head1 DESCRIPTION
+
+This program uses C<DBIx::Renderer> to generate the schema for use within
+SQL::Catalog. Its output is bona fide SQL that can be passed to Postgres.
+
+=head1 NOTES
+
+For extra brownie points, install C<GraphViz::DBI> (also by Marcel Grunaer
+and available from CPAN) and use C<dbigraph.pl> to graph the tables and
+their connections. You should arrive at the same graph as was bundled
+in the C<exmaples/> directory of C<GraphViz::DBI>, since this is the
+database used to create it.
+
+=head1 BUGS
+
+None known.
+
+=head1 AUTHOR
+
+Terrence Brannon, <tbone@cpan.org>
+
+=cut
+
