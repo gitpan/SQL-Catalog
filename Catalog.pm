@@ -8,7 +8,7 @@ require 5.005_62;
 use strict;
 use warnings;
 
-our $VERSION = sprintf '%s', q{$Revision: 1.2 $} =~ /\S+\s+(\S+)/ ;
+our $VERSION = sprintf '%s', q{$Revision: 1.4 $} =~ /\S+\s+(\S+)/ ;
 
 # author , optional
 # denormalize on label
@@ -248,7 +248,12 @@ You may at some time to be forced to deploy an application which has to
 work on more than one database. Prior to SQL::Catalog, there were two
 choices - DBIx::AnyDBD and DBIx::Recordset. With SQL::Catalog, you
 simply store the SQL for a particular label in each database and you
-are done.
+are done. 
+
+Note though that because some databases can do in one query what takes
+4 in another (ie, Oracle has C<SELECT * FROM CREATE TABLE ...>),
+you may have to create subclasses of your database layer classes to actually
+handle each needed function.
 
 =item * labelled queries
 
@@ -282,6 +287,16 @@ that is afforded to HTML designers be afforded to SQL programmers.
 
 This makes it easy for someone to see how 
 you did something so they can imitate.
+
+=item * memory preservation
+
+You may be sitting there thinking "this is no better than a Perl
+hashref". And if you are, then I congratulate you on making it to the
+6th bulleted item instead of impatiently finding something else to do.
+Anyway, the problem with using a Perl hashref is that it will consume 
+memory and in a large system memory is precious.
+
+Furthermore, you don't get the querying capabilities with a Perl hashref.
 
 =back
 

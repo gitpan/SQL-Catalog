@@ -19,5 +19,5 @@ INSTALLATION AND USAGE INSTRUCTIONS
          setenv SQL_CATALOG_USR postgres
          setenv SQL_CATALOG_PAS 
 
-    * Copy the sql_* scripts to a place on your `$PATH'
+    * Copy the sql_* scripts to a place on your $PATH
     * Let 'er rip.
