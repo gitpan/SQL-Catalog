@@ -18,6 +18,9 @@ INSTALLATION AND USAGE INSTRUCTIONS
          setenv SQL_CATALOG_DSN dbi:Pg:dbname=mydb
          setenv SQL_CATALOG_USR postgres
          setenv SQL_CATALOG_PAS 
+         setenv SQL_CATALOG_STO Cache::FileCache 
+         setenv SQL_CATALOG_OPT "namespace => 'MyNamespace', default_expires_in => 600"
+
 
     * Copy the sql_* scripts to a place on your $PATH
     * Let 'er rip.

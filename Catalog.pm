@@ -9,12 +9,45 @@ require 5.005_62;
 use strict;
 use warnings;
 
-our $VERSION = sprintf '%s', q{$Revision: 1.10 $} =~ /\S+\s+(\S+)/ ;
+our $cache;
+our $VERSION = sprintf '%s', q{$Revision: 1.11 $} =~ /\S+\s+(\S+)/ ;
 
-# author , optional
-# denormalize on label
 
 # Preloaded methods go here.
+
+sub cache_enabled {
+    $ENV{SQL_CATALOG_STO} and $ENV{SQL_CATALOG_OPT} ;
+}
+
+
+sub import {
+
+    use Cache::Cache;
+    return unless cache_enabled;
+
+    my $cache_opts = eval " { $ENV{SQL_CATALOG_OPT} } " ;
+    warn "cache_opts ", Dumper($cache_opts);
+    eval "require $ENV{SQL_CATALOG_STO}";
+    $cache = $ENV{SQL_CATALOG_STO}->new ( $cache_opts ) ;
+    confess "Couldnt make $ENV{SQL_CATALOG_STO}" unless $cache;
+
+}
+
+sub cache {
+
+    return unless cache_enabled;
+
+    my ($label, $sql) = @_;
+
+    if ($sql) {
+	warn "$cache->set($label, $sql)";
+	$cache->set($label, $sql);
+    } else {
+	$cache->get($label);
+    }
+
+}
+
 sub load_sql_from {
     my $file = shift;
     -e $file or croak "File $file does not exist";
@@ -150,6 +183,24 @@ values (       ?,   ? ,   ?)';
    
 }
 
+sub spider {
+
+    unless (cache_enabled) {
+	warn "Cache is not enabled. Cannot spider sql catalog.";
+    }
+
+    my $dbh = db_handle;
+
+    my $lookup = 'SELECT label,query FROM sql_catalog';
+    my $aref   = $dbh->selectall_hashref($lookup);
+
+    map {
+	cache($_->{label}, $_->{query})
+    } @$aref;
+
+}
+
+
 sub lookup {
 
     my ($class,$label) = @_;
@@ -158,9 +209,14 @@ sub lookup {
 
     warn "looking for label [$label]";
 
+    if (cache_enabled) {
+	my $label = cache($label);
+	return $label if $label;
+    }
+
     my $dbh = db_handle;
 
-    my $lookup = 'select query from sql_catalog where label = ?';
+    my $lookup = 'SELECT query FROM sql_catalog WHERE label = ?';
     my $sth = $dbh->prepare($lookup);
 
     $sth->execute($label);
@@ -169,6 +225,8 @@ sub lookup {
     $rows == 1 or die "error. lookup query returned $rows instead of 1";
 
     my $row = $sth->fetchrow_hashref;
+
+    cache($label, $row->{query});
 
     $row->{query};
 
@@ -189,7 +247,6 @@ sub test {
     use Data::Dumper;
 
     return unless ($parse->{command} =~ /select/i);
-
 
     open T, '>testexec.out' or die 'cannot create output file';
     print T "Query
@@ -214,13 +271,13 @@ $sql
 
 }
 
-1;
+"True Value (Hardware)";
 __END__
-# Below is stub documentation for your module. You better edit it!
+
 
 =head1 NAME
 
-SQL::Catalog - label queries, db independant SQL, separate Perl and SQL
+SQL::Catalog - query queries, label queries, db independant SQL, separate Perl and SQL
 
 =head1 SYNOPSIS
 
@@ -229,19 +286,26 @@ SQL::Catalog - label queries, db independant SQL, separate Perl and SQL
  shell% cat concrete.sql 
  select city, date from weather where temp_lo < 20 and temp_hi > 40 LIMIT 10
  shell% sql_test concrete.sql 
- shell% cat testexec.out # see results of prepare, execute on this
+ # see results of prepare, execute on this
+ shell% cat testexec.out 
 
  shell% cat abstract.sql
  select city, date from weather where temp_lo < ? and temp_hi > ?
- shell% sql_test abstract.sql 55 # send in placeholder value
- shell% cat testexec.out # to see results... looks good
+ # send in placeholder value
+ shell% sql_test abstract.sql 55 
+ # let's see results... looks good
+ shell% cat testexec.out 
 
  shell% sql_register abstract.sql basic_weather "basic weather query"
  [basic_weather] inserted as 
  [select city from weather where temp_lo < ? and temp_hi > ?]
 
  ... then in a Perl program (e.g. test.pl in this distribution)
- my $dbh = SQL::Catalog->db_handle; # optional - get the handle as you please
+ 
+ # Cache all queries to a Cache::Cache instead of runtime db-lookup
+ % shell perl -MSQL::Catalog -e 'SQL::Catalog->spider'
+
+ my $dbh = get_the_handle_as_you_please;
  my $sql = SQL::Catalog->lookup('hi_and_low');
  my $sth = $dbh->prepare($sql);
  $sth->execute(55);
@@ -419,6 +483,10 @@ And here is the result of ONE sql_register:
  (1 row)
 
 
+Queries are only *stored* in the database, by calling
+C<SQL::Catalog->spider>, you can move them into main memory or a file cache
+or whatever other kind of cache that C<Cache::Cache> supports.
+
 =head1 NOTES
 
 =over 4
@@ -462,7 +530,7 @@ connection and sql management.
 queries and shortens the prepare-execute ritual a bit.
 
 =item * L<Class::Phrasebook::SQL|Class::Phrasebook::SQL>
- stores a "phrasebook" of SQL in XML
+stores a "phrasebook" of SQL in XML
 files. Allows for retrieval of queries via a convenient API. The
 querying of queries that SQL::Catalog supports can be done using an
 XML processor along with SQL::Statement.

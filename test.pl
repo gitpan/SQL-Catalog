@@ -21,19 +21,10 @@ exit 0;
 # of the test code):
 
 my $dbh = SQL::Catalog->db_handle;
-my $sql = SQL::Catalog->lookup('basic_weather');
-my $sth = $dbh->prepare($sql);
-$sth->execute(55);
+my $sql = SQL::Catalog->lookup('insert_thot');
 
-my $rows = $sth->rows;
+print "n" unless $sql;
 
-$sth->finish;
-$dbh->disconnect;
-
-warn "rows returned ", $rows;
-
-$rows > 0 and print "ok 2" and exit;
-
-print "nok 2";
+print "ok 2\n";
 
 

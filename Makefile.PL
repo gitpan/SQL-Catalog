@@ -6,6 +6,7 @@ WriteMakefile(
     'VERSION_FROM'	=> 'Catalog.pm', # finds $VERSION
     'PREREQ_PM'		=> {
       SQL::Statement => 0.1,
-	DBI => 1.19
+	DBI => 1.19,
+      Cache::Cache => 0.99
     }, # e.g., Module::Name => 1.1
 );

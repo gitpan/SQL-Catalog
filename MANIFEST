@@ -1,6 +1,7 @@
 Catalog.pm
 Changes
 db-creation/informix.sql
+db-creation/mysql.sql
 db-creation/postgresql.sql
 db-creation/postgresql.renderer
 MANIFEST

@@ -1,3 +1,8 @@
+2001-12-15  Terrence Brannon  <metaperl@localhost>
+
+	* added support for "spidering" entire SQL Catalog as well as
+	incremental runtime SQL caching
+
 2001-10-28  Terrence Brannon  <metaperl@localhost>
 
 	* 0.04  Sun Oct 28 06:05:36 PST 2001
