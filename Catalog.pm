@@ -8,7 +8,7 @@ require 5.005_62;
 use strict;
 use warnings;
 
-our $VERSION = sprintf '%s', q{$Revision: 1.4 $} =~ /\S+\s+(\S+)/ ;
+our $VERSION = sprintf '%s', q{$Revision: 1.5 $} =~ /\S+\s+(\S+)/ ;
 
 # author , optional
 # denormalize on label
@@ -439,12 +439,17 @@ SQL::Catalog does.
 
 =over 4
 
-=item * Class::Phrasebook::SQL stores a "phrasebook" of SQL in XML
+=item * L<Ima::DBI|Ima::DBI> provides an object-oriented interface to
+connection and sql management.
+
+=item * L<Class::Phrasebook::SQL|Class::Phrasebook::SQL>
+ stores a "phrasebook" of SQL in XML
 files. Allows for retrieval of queries via a convenient API. The
 querying of queries that SQL::Catalog supports can be done using an
 XML processor along with SQL::Statement.
 
-=item * L<DBIx::SearchProfiles>. Does query labeling and also has some
+=item * L<DBIx::SearchProfiles|DBIx::SearchProfiles>. 
+Does query labeling and also has some
 convenience functions for query retrieval. It does not store the SQL
 in a database or make it searchable by table, column, or number of
 placeholders. Your standard Perl data munging techniques would be the way to
