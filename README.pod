@@ -6,23 +6,28 @@
 
  perl Makefile.PL
  make
+ make test
  make install
 
-make test is not too easy to do.. Sigh. 
+You will need to download and install 
+SQL::Statement and DBIx::AnyDBD unless you are using 
+CPAN.pm which will detect them as a prereq and install them for you.
 
-You will need to download and install SQL::Statement unless you are using 
-CPAN.pm which will detect it as a prereq and install it for you.
+The Makefile.PL will create a configuration file in
+lib/SQL/Catalog/Config.pm which SQL::Catalog will use to 
+create the tables sql_catalog, sql_catalog_ft
+and later to connect to the database and register SQL in these tables.
 
-=item * Use or create and contribute a script to create a table named 
-sql_catalog. Scripts for Postgresql and Informix are provided.
+You must set the following environmental variable to the name of your
+DBD driver sans C<DBD::>, e.g.:
 
-=item * Set your environmental variables to connect to the database where
-the sql_catalog table was created. here are mine. And yes, the password is 
-an empty string in my case.
+ setenv SQL_CATALOG_DSN Pg
 
- setenv SQL_CATALOG_DSN dbi:Pg:dbname=mydb
- setenv SQL_CATALOG_USR postgres
- setenv SQL_CATALOG_PAS 
+If you want to use the C<cache> and C<spider> methods, then you have to
+configure the SQL::Catalog Cache::Cache, e.g:
+
+ setenv SQL_CATALOG_STO Cache::FileCache 
+ setenv SQL_CATALOG_OPT "namespace => 'sql_catalog', default_expires_in => 600"
 
 =item * Copy the sql_* scripts to a place on your C<$PATH>
 

@@ -10,7 +10,7 @@ use strict;
 use warnings;
 
 our $cache;
-our $VERSION = sprintf '%s', q{$Revision: 1.11 $} =~ /\S+\s+(\S+)/ ;
+our $VERSION = sprintf '%s', q{$Revision: 2.0 $} =~ /\S+\s+(\S+)/ ;
 
 
 # Preloaded methods go here.
@@ -26,7 +26,7 @@ sub import {
     return unless cache_enabled;
 
     my $cache_opts = eval " { $ENV{SQL_CATALOG_OPT} } " ;
-    warn "cache_opts ", Dumper($cache_opts);
+#    warn "cache_opts ", Dumper($cache_opts);
     eval "require $ENV{SQL_CATALOG_STO}";
     $cache = $ENV{SQL_CATALOG_STO}->new ( $cache_opts ) ;
     confess "Couldnt make $ENV{SQL_CATALOG_STO}" unless $cache;
@@ -55,14 +55,22 @@ sub load_sql_from {
     join '', <A>;
 }
 
+
 sub db_handle {
 
-    my $connect  = $ENV{SQL_CATALOG_DSN};
-    my $username = $ENV{SQL_CATALOG_USR};
-    my $password = $ENV{SQL_CATALOG_PAS};
+  use SQL::Catalog::Config;
 
-    DBI->connect($connect, $username, $password,
-		 { RaiseError => 1, PrintError => 1 });
+  my $config   = $ENV{SQL_CATALOG_DRV};
+  my $parms    = $SQL::Catalog::Config::param{$config};
+  my $username = $ENV{SQL_CATALOG_USR};
+  my $password = $ENV{SQL_CATALOG_PAS};
+
+  use Data::Dumper;
+  warn "db_handle parms($config): ", Dumper($parms);
+
+  DBI->connect(
+	       $parms->{DataSource}, $parms->{UserName}, $parms->{Password},
+	       { RaiseError => 1, PrintError => 1 });
 
 }
 
@@ -172,7 +180,7 @@ values (       ?,   ? ,   ?)';
        $sth_ft->execute($label, $column->{table}, $column->{column});
    }	
 
-    open R, ">$sql.sql_cat" or die "can't open register:!";
+    open R, ">$file._register" or die "can't open register:!";
 
     my $log = "[$label] inserted as\n[$sql]\n";
 
@@ -248,7 +256,7 @@ sub test {
 
     return unless ($parse->{command} =~ /select/i);
 
-    open T, '>testexec.out' or die 'cannot create output file';
+    open T, ">$file._test" or die 'cannot create output file';
     print T "Query
 $sql
 

@@ -1,9 +1,13 @@
-Catalog.pm
 Changes
 db-creation/informix.sql
 db-creation/mysql.sql
 db-creation/postgresql.sql
 db-creation/postgresql.renderer
+lib/SQL/Catalog.pm
+lib/SQL/Catalog/Config.pm
+lib/SQL/Catalog/Test/Default.pm
+lib/SQL/Catalog/Test/Pg.pm
+lib/SQL/Catalog/Test.pm
 MANIFEST
 Makefile.PL
 README
@@ -14,4 +18,4 @@ sql_lair/city,date/weather/1/abstract.sql
 sql_lookup
 sql_register
 sql_test
-test.pl
+t/001-make-tables.t

@@ -1,3 +1,5 @@
+#!/bin/sh -x
+
 perl Makefile.PL PREFIX=$PREFIX
 make
 make test
