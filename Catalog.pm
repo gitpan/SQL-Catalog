@@ -3,12 +3,13 @@ package SQL::Catalog;
 use DBI;
 use SQL::Statement;
 use Data::Dumper;
+use Carp;
 
 require 5.005_62;
 use strict;
 use warnings;
 
-our $VERSION = sprintf '%s', q{$Revision: 1.5 $} =~ /\S+\s+(\S+)/ ;
+our $VERSION = sprintf '%s', q{$Revision: 1.10 $} =~ /\S+\s+(\S+)/ ;
 
 # author , optional
 # denormalize on label
@@ -16,6 +17,7 @@ our $VERSION = sprintf '%s', q{$Revision: 1.5 $} =~ /\S+\s+(\S+)/ ;
 # Preloaded methods go here.
 sub load_sql_from {
     my $file = shift;
+    -e $file or croak "File $file does not exist";
     open A, $file or die "cannot open $file";
     join '', <A>;
 }
@@ -44,8 +46,21 @@ sub parse_sql {
      SQL::Statement->new($sql, $parser);
    };
    if ($@) {
-       die 
+       warn
 	   "Cannot parse statement (statement cannot end with semicolon): $@";
+       warn 
+	   "Continuing without SQL validation (good luck).";
+       my $u='unparseable';
+       return { 
+	   command => $u,
+	   params =>  -1,
+	   columns => [
+		       {
+			   table  => $u,
+			   column => $u
+			   }
+		       ],
+	    } ;
    }
 
     my %pa;
@@ -124,7 +139,7 @@ values (       ?,   ? ,   ?)';
        $sth_ft->execute($label, $column->{table}, $column->{column});
    }	
 
-    open R, ">register.log" or die "can't open register:!";
+    open R, ">$sql.sql_cat" or die "can't open register:!";
 
     my $log = "[$label] inserted as\n[$sql]\n";
 
@@ -160,12 +175,11 @@ sub lookup {
 }
 
 sub test {
-    warn "NO PLACEHOLDER VALUES SUPPLIED" unless @_;
     my ($class,$file,@bind_args) = @_;
+    warn "NO PLACEHOLDER VALUES SUPPLIED" unless @bind_args;
     my $sql = load_sql_from $file;
 
     my $parse = parse_sql $sql;
-
 
     my $dbh = db_handle;
     my $sth = $dbh->prepare($sql);
@@ -223,7 +237,7 @@ SQL::Catalog - label queries, db independant SQL, separate Perl and SQL
  shell% cat testexec.out # to see results... looks good
 
  shell% sql_register abstract.sql basic_weather "basic weather query"
- [hi_and_low] inserted as 
+ [basic_weather] inserted as 
  [select city from weather where temp_lo < ? and temp_hi > ?]
 
  ... then in a Perl program (e.g. test.pl in this distribution)
@@ -246,14 +260,13 @@ necessary. And before this module, time-consuming:
 
 You may at some time to be forced to deploy an application which has to
 work on more than one database. Prior to SQL::Catalog, there were two
-choices - DBIx::AnyDBD and DBIx::Recordset. With SQL::Catalog, you
-simply store the SQL for a particular label in each database and you
-are done. 
+choices - DBIx::AnyDBD and DBIx::Recordset. SQL::Catalog will work well
+alongside the latter.
 
 Note though that because some databases can do in one query what takes
 4 in another (ie, Oracle has C<SELECT * FROM CREATE TABLE ...>),
 you may have to create subclasses of your database layer classes to actually
-handle each needed function.
+handle each needed function. This is what DBIx::AnyDBD handles for you.
 
 =item * labelled queries
 
@@ -357,17 +370,18 @@ See the README in the home directory of the distribution.
 
 =head1 What SQL::Catalog does
 
-It stores each query in a database table. I could have gone for
-something more normalized and exquisite in database design but wanted to 
-maintain 
-database independence without requiring extra tools for schema
-creation and database use. 
+It stores each query in a database table with the label as key and
+the SQL query as the one value for that key. Then there is a foreign
+table with a number of useful query attributes such as type of query, 
+tables and columns used and number of placeholders.
 
-Right now we have schema creation and SQL code which works for Informix and
-Postgresql and welcome more.
+Right now we have schema creation and SQL code which works for 
+MySQL (thanks to Jason W. May), Informix (thanks to Jonathan Leffler) 
+and Postgresql (thanks to me, although I did use Marcel Grunaer's
+DBIx::Renderer to make it) and welcome more.
 
 The queries are stored in these tables
-(this file is C<db-creation/postgresql.renderer>):
+(this file is C<db-creation/postgresql.sql>):
 
  CREATE TABLE sql_catalog (
         label varchar(80) ,
@@ -431,6 +445,8 @@ data database connects based on a different DSN.
 T. M. Brannon, <tbone@cpan.org>
 
 Substantial contribution (and ass-kicking) by Jonathan Leffler.
+MySQL table creation code contribution by Jason W. May.
+
 
 =head1 SEE ALSO
 
@@ -441,6 +457,9 @@ SQL::Catalog does.
 
 =item * L<Ima::DBI|Ima::DBI> provides an object-oriented interface to
 connection and sql management.
+
+=item * L<DBIx::Librarian|DBIx::Librarian> provides labelled access to 
+queries and shortens the prepare-execute ritual a bit.
 
 =item * L<Class::Phrasebook::SQL|Class::Phrasebook::SQL>
  stores a "phrasebook" of SQL in XML
