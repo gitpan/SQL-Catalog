@@ -29,7 +29,7 @@ our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
 our @EXPORT = qw(
 	
 );
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 
 # Preloaded methods go here.
@@ -50,14 +50,11 @@ sub db_handle {
     
 }
 
-sub register {
+sub parse_sql {
 
-    my ($class,$file,$label) = @_;
+    my $sql= shift;
 
-    my $sql = load_sql_from $file;
-
-   die "you must create a label for this SQL: $sql" unless $label;
-   # Create a parser
+  # Create a parse
    my($parser) = SQL::Parser->new('Ansi');
 
    # Parse an SQL statement
@@ -69,25 +66,45 @@ sub register {
        die "Cannot parse statement: $@";
    }
 
-   # Query the list of result columns;
-   my @columns = $stmt->columns;    # Array context
-   my $columns = join ',', map { $_->{table} . '.' . $_->{column} } @columns;
+    my %pa;
 
-   # Likewise, query the tables being used in the statement:
-   my @tables = $stmt->tables;      # Array context
-   my $tables = join ',', map { $_->{table} } @tables;
+    # Query the list of result columns;
+    my @columns = $stmt->columns;    # Array context
+    $pa{columns}= \@columns;
+    
 
-   my $params = $stmt->params;
+    # Likewise, query the tables being used in the statement:
+    my @tables = $stmt->tables;      # Array context
+    $pa{tables}= \@tables;
 
-   my $command = $stmt->command;
+    my $params = $stmt->params;
+    $pa{params}= $params;
+
+    my $command = $stmt->command;
+    $pa{command}= $command;
+
+    \%pa;
+
+}
+
+sub register {
+
+    my ($class,$file,$label) = @_;
+
+    my $sql = load_sql_from $file;
+
+   die "you must create a label for this SQL: $sql" unless $label;
+ 
+    my $parse = parse_sql $sql;
+
+    my $tables = join ',', map { $_->{table} } @{$parse->{tables}};
+    my $columns = join ',', map { $_->{table} . '.' . $_->{column} } @{$parse->{columns}};
 
 #   die Dumper(\@columns, \@tables, $params, \$command);
  
    my $insert='insert into sql_catalog
        (label,  query,  tables, columns, cmd, phold)
 values (  ?  ,   ?   ,    ?   ,    ?   ,  ? ,   ?  )';
-
-
     
    my $dbh = db_handle;
 
@@ -96,7 +113,9 @@ values (  ?  ,   ?   ,    ?   ,    ?   ,  ? ,   ?  )';
 
    my $sth = $dbh->prepare($insert);
 
-   $sth->execute($label, $sql, $tables, $columns, $command, $params);
+   $sth->execute
+       ($label, $sql, 
+	$tables, $columns, $parse->{command}, $parse->{params});
 
     print "[$label] inserted as\n[$sql]";
 
@@ -133,15 +152,18 @@ sub test {
     my ($class,$file,@bind_args) = @_;
     my $sql = load_sql_from $file;
 
+    my $parse = parse_sql $sql;
+
 
     my $dbh = db_handle;
     my $sth = $dbh->prepare($sql);
-
-
     
     $sth->execute(@bind_args);
 
     use Data::Dumper;
+
+    return unless ($parse->{command} =~ /select/i);
+
 
     open T, '>testexec.out' or die 'cannot create output file';
     print T "Query
@@ -172,7 +194,7 @@ __END__
 
 =head1 NAME
 
-SQL::Catalog - test, label, and retrieve SQL queries
+SQL::Catalog - test, label, store, search and retrieve SQL queries
 
 =head1 SYNOPSIS
 
@@ -203,7 +225,7 @@ SQL::Catalog - test, label, and retrieve SQL queries
 
 =head1 DESCRIPTION
 
-Over time, it has become obvious that two things about SQL queries are 
+Over time, it has become obvious that a few things about SQL queries are 
 necessary. One, you want to be able to get a query by a label. Two, you want 
 to be able to look through old queries to see if someone else has written
 one similar to what you want. Three, you want the database guru to develop
@@ -213,9 +235,9 @@ interfering with him. Four, you want to be able to answer questions such as
 
 Well, wait no longer, for your solution has arrived.
 
-=head1 Common Steps to Usage
+=head1 COMMON STEPS TO USAGE
 
-=head2 Develop your "concrete query in a db shell"
+=head2 Develop your concrete query in a db shell
 
 The first step to developing a database query is to play around at the 
 db shell. In this case, you normally dont have any placeheld values. You just
@@ -305,16 +327,29 @@ T. M. Brannon, <tbone@cpan.org>
 
 =over 4
 
-=item * L<Class::Phrasebook::SQL> performs a similar function. It
-stores a "phrasebook" of SQL in XML files. It doesn't support
-placeholders. It also has some rather daunting satellite module
-requirements. 
+=item * L<Class::Phrasebook::SQL>. Performs a similar function. It
+stores a "phrasebook" of SQL in XML files. Querying can be done with any
+standard XML processor.
 
-=item * L<DBIx::SearchProfile> does query labeling and also has some
+=item * L<DBIx::SearchProfiles>. Does query labeling and also has some
 convenience functions for query retrieval. It does not store the SQL
 in a database or make it searchable by table, column, or number of
-placeholders. 
+placeholders. Your standard Perl data munging techniques would be the way to
+do statistical analysis of your queries.
+
+=item * http://perlmonks.org/index.pl?node_id=96268&lastnode_id=96273
+
+A different approach is suggested using Perl modules. Interesting idea.
+
+=item * "Leashing DBI"
+
+http://perlmonks.org/index.pl?node=Leashing%20DBI&lastnode_id=96268
 
 =back
+
+=head1 NOTES
+
+Do NOT end your SQL statements for testing within this framework with a 
+semicolon.
 
 =cut
