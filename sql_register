@@ -1,0 +1,9 @@
+#!/Users/metaperl/install/bin/perl
+
+use SQL::Catalog;
+use strict;
+
+my $file = shift;
+
+SQL::Catalog->register($file,@ARGV);
+

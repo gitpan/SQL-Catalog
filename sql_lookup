@@ -1,0 +1,12 @@
+#!/Users/metaperl/install/bin/perl
+
+use SQL::Catalog;
+use strict;
+
+my $file = shift;
+
+my $sql = SQL::Catalog->lookup($file);
+
+print $sql;
+
+

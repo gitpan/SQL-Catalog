@@ -1,0 +1,10 @@
+Catalog.pm
+Changes
+MANIFEST
+Makefile.PL
+sql_lair/city,date/weather/1/concrete.sql
+sql_lair/city,date/weather/1/abstract.sql
+sql_lookup
+sql_register
+sql_test
+test.pl

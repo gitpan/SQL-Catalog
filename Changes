@@ -1,0 +1,6 @@
+Revision history for Perl extension SQL::Catalog.
+
+0.01  Wed Oct 24 08:41:01 2001
+	- original version; created by h2xs 1.1.1.4 with options
+		-A -X -n SQL::Catalog
+
