@@ -185,7 +185,9 @@ if ($input) {
   }
 }
 
-print "Using $conf[$default] as default\n" ;
+print "Using $conf[$default] as default.
+be sure your .cshrc has this line:
+setenv SQL_CATALOG_DRV $conf[$default]\n" ;
 
 my $f = 'lib/SQL/Catalog/Config.pm';
 
@@ -237,9 +239,16 @@ WriteMakefile(
 	      'NAME'		=> 'SQL::Catalog',
 	      'VERSION_FROM'	=> 'lib/SQL/Catalog.pm', # finds $VERSION
 	      'PREREQ_PM'		=> {
-					    SQL::Statement => 0.1,
-					    DBIx::AnyDBD => 1.94,
+					    Cache::Cache => 0.99,
 					    DBI => 1.19,
-					    Cache::Cache => 0.99
+					    DBIx::AnyDBD => 1.94,
+					    PApp::SQL => 0.124,
+					    SQL::Statement => 0.1,
 					   }, # e.g., Module::Name => 1.1
 	     );
+
+print "now you may do:
+make
+make test
+make install
+";

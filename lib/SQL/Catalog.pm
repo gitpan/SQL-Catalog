@@ -1,16 +1,20 @@
 package SQL::Catalog;
 
-use DBI;
+use PApp::SQL;
+use DBIx::AnyDBD;
 use SQL::Statement;
 use Data::Dumper;
 use Carp;
+use base qw(Exporter);
 
 require 5.005_62;
 use strict;
 use warnings;
 
+our @EXPORT = qw(sql_lookup);
+
 our $cache;
-our $VERSION = sprintf '%s', q{$Revision: 2.0 $} =~ /\S+\s+(\S+)/ ;
+our $VERSION = sprintf '%s', q{$Revision: 2.4 $} =~ /\S+\s+(\S+)/ ;
 
 
 # Preloaded methods go here.
@@ -19,8 +23,31 @@ sub cache_enabled {
     $ENV{SQL_CATALOG_STO} and $ENV{SQL_CATALOG_OPT} ;
 }
 
-
 sub import {
+
+### required dbh stuff
+
+    require SQL::Catalog::Config;
+
+    $ENV{SQL_CATALOG_DRV} or die 
+	"environment variable SQL_CATALOG_DRV not defined.
+consult the README for details.";
+
+    my $config   = $ENV{SQL_CATALOG_DRV};
+    my $parms    = $SQL::Catalog::Config::param{$config};
+
+    our $DBH =
+      DBIx::AnyDBD->new(dsn => $parms->{DataSource}, 
+			user => $parms->{UserName}, 
+			pass => $parms->{Password},
+			package => __PACKAGE__,
+			attr => { RaiseError => 1, PrintError => 1 });
+
+    $PApp::SQL::DBH = $dbh->get_dbh;
+
+#    warn "sql_catalog_dbh    ",Dumper($SQL::Catalog::DBH);
+
+### optional cache stuff
 
     use Cache::Cache;
     return unless cache_enabled;
@@ -55,24 +82,6 @@ sub load_sql_from {
     join '', <A>;
 }
 
-
-sub db_handle {
-
-  use SQL::Catalog::Config;
-
-  my $config   = $ENV{SQL_CATALOG_DRV};
-  my $parms    = $SQL::Catalog::Config::param{$config};
-  my $username = $ENV{SQL_CATALOG_USR};
-  my $password = $ENV{SQL_CATALOG_PAS};
-
-  use Data::Dumper;
-  warn "db_handle parms($config): ", Dumper($parms);
-
-  DBI->connect(
-	       $parms->{DataSource}, $parms->{UserName}, $parms->{Password},
-	       { RaiseError => 1, PrintError => 1 });
-
-}
 
 sub parse_sql {
 
@@ -149,10 +158,7 @@ EOD
     my $parse = parse_sql $sql;
 
    #   die Dumper(\@columns, \@tables, $params, \$command);
- 
     
-   my $dbh = db_handle;
-
     my $insert='insert into sql_catalog
        (label, cmd, phold, author, query, comments)
 values (    ?,   ?,     ?,      ?,     ?,        ?)';
@@ -162,22 +168,15 @@ values (    ?,   ?,     ?,      ?,     ?,        ?)';
 values (       ?,   ? ,   ?)';
 
 
-   my $sth_primary = $dbh->prepare($insert);
-   my $sth_ft      = $dbh->prepare($insert_ft);
 
     my $uname = getpwuid($<);
 
-    warn sprintf "BIND %s . %s . %s . %s . %s . %s   ",
-    ($label, $parse->{command}, $parse->{params}, 
-	$uname, $sql, $comments);
-
-   $sth_primary->execute 
-       ($label, $parse->{command}, $parse->{params}, 
-	$uname, $sql, $comments);
+    sql_exec $insert,
+       $label, $parse->{command}, $parse->{params}, $uname, $sql, $comments ;
    
   
    for my $column (@{$parse->{columns}}) {	
-       $sth_ft->execute($label, $column->{table}, $column->{column});
+       sql_exec $insert_ft, $label, $column->{table}, $column->{column} ;
    }	
 
     open R, ">$file._register" or die "can't open register:!";
@@ -187,8 +186,6 @@ values (       ?,   ? ,   ?)';
     print R $log;
     print $log;
 
-    $dbh->disconnect;
-   
 }
 
 sub spider {
@@ -197,46 +194,16 @@ sub spider {
 	warn "Cache is not enabled. Cannot spider sql catalog.";
     }
 
-    my $dbh = db_handle;
-
-    my $lookup = 'SELECT label,query FROM sql_catalog';
-    my $aref   = $dbh->selectall_hashref($lookup);
-
-    map {
-	cache($_->{label}, $_->{query})
-    } @$aref;
+    for (sql_fetchall 'SELECT label, query FROM sql_catalog') {
+	cache($_->[0], $_->[1]) ;
+    } 
 
 }
 
 
-sub lookup {
+sub sql_lookup($) {
 
-    my ($class,$label) = @_;
-
-    defined $label or die "must supply label";
-
-    warn "looking for label [$label]";
-
-    if (cache_enabled) {
-	my $label = cache($label);
-	return $label if $label;
-    }
-
-    my $dbh = db_handle;
-
-    my $lookup = 'SELECT query FROM sql_catalog WHERE label = ?';
-    my $sth = $dbh->prepare($lookup);
-
-    $sth->execute($label);
-
-    my $rows = $sth->rows;
-    $rows == 1 or die "error. lookup query returned $rows instead of 1";
-
-    my $row = $sth->fetchrow_hashref;
-
-    cache($label, $row->{query});
-
-    $row->{query};
+    $SQL::Catalog::DBH->sql_lookup(@_);
 
 }
 
@@ -247,12 +214,7 @@ sub test {
 
     my $parse = parse_sql $sql;
 
-    my $dbh = db_handle;
-    my $sth = $dbh->prepare($sql);
-    
-    $sth->execute(@bind_args);
-
-    use Data::Dumper;
+    my $sth = sql_exec $sql, @bind_args;
 
     return unless ($parse->{command} =~ /select/i);
 
@@ -273,10 +235,6 @@ $sql
 	print Dumper($rec);
 	print T Dumper($rec);
     }
-
-
-    $dbh->disconnect;
-
 }
 
 "True Value (Hardware)";
@@ -289,22 +247,23 @@ SQL::Catalog - query queries, label queries, db independant SQL, separate Perl a
 
 =head1 SYNOPSIS
 
- shell% cd sql_lair/city,date/weather/1/
+ shell% cd sql_repository/city,date/weather/1/
 
  shell% cat concrete.sql 
  select city, date from weather where temp_lo < 20 and temp_hi > 40 LIMIT 10
  shell% sql_test concrete.sql 
  # see results of prepare, execute on this
- shell% cat testexec.out 
+ shell% cat concrete.sql._test
 
  shell% cat abstract.sql
  select city, date from weather where temp_lo < ? and temp_hi > ?
  # send in placeholder value
  shell% sql_test abstract.sql 55 
  # let's see results... looks good
- shell% cat testexec.out 
+ shell% cat abstract.sql._test
 
  shell% sql_register abstract.sql basic_weather "basic weather query"
+ shell% cat abstract.sql._register
  [basic_weather] inserted as 
  [select city from weather where temp_lo < ? and temp_hi > ?]
 
@@ -314,7 +273,7 @@ SQL::Catalog - query queries, label queries, db independant SQL, separate Perl a
  % shell perl -MSQL::Catalog -e 'SQL::Catalog->spider'
 
  my $dbh = get_the_handle_as_you_please;
- my $sql = SQL::Catalog->lookup('hi_and_low');
+ my $sql = memory and in a large system memory is precious.
  my $sth = $dbh->prepare($sql);
  $sth->execute(55);
 
@@ -333,10 +292,10 @@ necessary. And before this module, time-consuming:
 You may at some time to be forced to deploy an application which has to
 work on more than one database. Prior to SQL::Catalog, there were two
 choices - DBIx::AnyDBD and DBIx::Recordset. SQL::Catalog will work well
-alongside the latter.
+alongside the latter. And in fact, SQL::Catalog itself uses DBIx::AnyDBD.
 
 Note though that because some databases can do in one query what takes
-4 in another (ie, Oracle has C<SELECT * FROM CREATE TABLE ...>),
+4 in another (ie, Postgres has C<SELECT * FROM X INTO ...>),
 you may have to create subclasses of your database layer classes to actually
 handle each needed function. This is what DBIx::AnyDBD handles for you.
 
@@ -378,12 +337,22 @@ you did something so they can imitate.
 You may be sitting there thinking "this is no better than a Perl
 hashref". And if you are, then I congratulate you on making it to the
 6th bulleted item instead of impatiently finding something else to do.
+
 Anyway, the problem with using a Perl hashref is that it will consume 
-memory and in a large system memory is precious.
+memory and in a large system memory is precious. 
+
+Now you could go the way of tying hashrefs to disk, but then
+you don't get the querying capabilities with a Perl hashref that you get
+with logging your SQL in a database, so THERE... heheh.
+
+=back
+
+SQL::Catalog addresses all of these issues.
+
 
 Furthermore, you don't get the querying capabilities with a Perl hashref.
 
-=back
+
 
 SQL::Catalog addresses all of these issues.
 
@@ -432,7 +401,7 @@ and the system tells you
  use SQL::Catalog;
 
  my $dbh = SQL::Catalog->db_handle; # or however you get your DBI handles
- my $SQL = SQL::Catalog->lookup('city_date_via_temp_hi') or die "not found";
+ my $SQL = sql_lookup('city_date_via_temp_hi') or die "not found";
  my $sth = $dbh->prepare($SQL, $cgi->param('degrees'));
   .... etc
 
@@ -495,12 +464,22 @@ Queries are only *stored* in the database, by calling
 C<SQL::Catalog->spider>, you can move them into main memory or a file cache
 or whatever other kind of cache that C<Cache::Cache> supports.
 
-=head1 NOTES
+=head1 IMPORTANT NOTES
 
 =over 4
 
-=item * Read the README for thorough install instructions for various
-databases.
+=item * Pleasing DBIx::AnyDBD
+
+DBIx::AnyDBD has this requirement that when searching for the implementation
+classes (e.g. Cannot find SQL/Catalog/Default.pm module! in 
+/Users/metaperl/src/sql_catalog at 
+/Users/metaperl/install/lib/site_perl/5.7.2/DBIx/AnyDBD.pm line 99.) that
+it uses the current working directory as the relative path.
+
+Unfortunately this means that when you run C<sql_test> or C<sql_register>
+that they must run from C<$dir> such that load_module <$dir/Default.pm> will
+find <SQL/Catalog/Default.pm>.
+
 
 =item * Do NOT end your SQL statements for testing within this framework with 
 a semicolon.

@@ -8,7 +8,6 @@ ok(1,1);
 
 use Data::Dumper;
 
-use SQL::Catalog;
 use SQL::Catalog::Config;
 use SQL::Catalog::Test;
 
@@ -20,7 +19,6 @@ for (keys %param) {
   SQL::Catalog::Test->set_user($param{$_}->{UserName});
   SQL::Catalog::Test->set_password($param{$_}->{Password});
     my $dbh = SQL::Catalog::Test->instance;
-    warn Dumper($dbh);
     $result = $dbh->create_sql_catalog;
 }
 

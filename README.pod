@@ -33,4 +33,8 @@ configure the SQL::Catalog Cache::Cache, e.g:
 
 =item * Let 'er rip.
 
+=item * SQL::Catalog should work for any SQL-92 compliant database
+
+but has only been tested on Postgresql
+
 =back
