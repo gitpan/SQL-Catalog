@@ -1,0 +1,23 @@
+INSTALLATION AND USAGE INSTRUCTIONS
+    * Install SQL::Catalog
+         perl Makefile.PL
+         make
+         make install
+
+        make test is not too easy to do.. Sigh.
+
+        You will need to download and install SQL::Statement unless you are
+        using CPAN.pm which will detect it as a prereq and install it for
+        you.
+
+    * Use or create and contribute a script to create a table named
+    sql_catalog. Scripts for Postgresql and Informix are provided.
+    * Set your environmental variables to connect to the database where the
+    sql_catalog table was created. here are mine. And yes, the username and
+    password are empty strings in my case.
+         setenv SQL_CATALOG_DSN dbi:Pg:dbname=mydb
+         setenv SQL_CATALOG_USR 
+         setenv SQL_CATALOG_PAS 
+
+    * Copy the sql_* scripts to a place on your `$PATH'
+    * Let 'er rip.

@@ -1,6 +1,5 @@
 package SQL::Catalog;
 
-
 use DBI;
 use SQL::Statement;
 use Data::Dumper;
@@ -9,27 +8,7 @@ require 5.005_62;
 use strict;
 use warnings;
 
-require Exporter;
-
-our @ISA = qw(Exporter);
-
-# Items to export into callers namespace by default. Note: do not export
-# names by default without a very good reason. Use EXPORT_OK instead.
-# Do not simply export all your public functions/methods/constants.
-
-# This allows declaration	use SQL::Catalog ':all';
-# If you do not need this, moving things directly into @EXPORT or @EXPORT_OK
-# will save memory.
-our %EXPORT_TAGS = ( 'all' => [ qw(
-	
-) ] );
-
-our @EXPORT_OK = ( @{ $EXPORT_TAGS{'all'} } );
-
-our @EXPORT = qw(
-	
-);
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 
 # Preloaded methods go here.
@@ -40,14 +19,14 @@ sub load_sql_from {
 }
 
 sub db_handle {
-    my $connect = 'dbi:Pg:dbname=mydb';
 
-    DBI->connect($connect,'postgres','money1',
-			   { RaiseError => 1,
-			     PrintError => 1
-			     }
-			   );
-    
+    my $connect  = $ENV{SQL_CATALOG_DSN};
+    my $username = $ENV{SQL_CATALOG_USR};
+    my $password = $ENV{SQL_CATALOG_PAS};
+
+    DBI->connect($connect, $username, $password,
+		 { RaiseError => 1, PrintError => 1 });
+
 }
 
 sub parse_sql {
@@ -72,7 +51,6 @@ sub parse_sql {
     my @columns = $stmt->columns;    # Array context
     $pa{columns}= \@columns;
     
-
     # Likewise, query the tables being used in the statement:
     my @tables = $stmt->tables;      # Array context
     $pa{tables}= \@tables;
@@ -84,7 +62,6 @@ sub parse_sql {
     $pa{command}= $command;
 
     \%pa;
-
 }
 
 sub register {
@@ -98,9 +75,11 @@ sub register {
     my $parse = parse_sql $sql;
 
     my $tables = join ',', map { $_->{table} } @{$parse->{tables}};
-    my $columns = join ',', map { $_->{table} . '.' . $_->{column} } @{$parse->{columns}};
+    my $columns = 
+	join ',', 
+	map { $_->{table} . '.' . $_->{column} } @{$parse->{columns}};
 
-#   die Dumper(\@columns, \@tables, $params, \$command);
+   #   die Dumper(\@columns, \@tables, $params, \$command);
  
    my $insert='insert into sql_catalog
        (label,  query,  tables, columns, cmd, phold)
@@ -256,13 +235,17 @@ Now it's time to make your query more abstract. So we do the following:
 
 and save in a different file, say C<abstract.sql>.
 
-But let's test this query next:
+Now let's test this query also, being sure to pass in data for the 
+placeholder fields:
 
  sql_test abstract.sql 34
 
+Certain drivers are not very good with their error messages in response to
+queries sent in without placeholder bindings, so take care here.
+
 And let's cat testexec.out to see the results.
 
-=head2 Register your query
+=head2 Register your query (store in the sql_category table)
 
  sql_register abstract.sql city_date_via_temp_hi
 
@@ -275,40 +258,38 @@ and the system tells you
 
  use SQL::Catalog;
 
- my $dbh = SQL::Catalog->db_handle;
+ my $dbh = SQL::Catalog->db_handle; # or however you get your DBI handles
  my $SQL = SQL::Catalog->lookup('city_date_via_temp_hi') or die "not found";
  my $sth = $dbh->prepare($SQL, $cgi->param('degrees'));
   .... etc
 
-=head1 What you must do
+=head1 INSTALLATION
 
-=over 4
-
-=item * edit sub db_handle so it gets a database handle. 
-
-=item * copy the sql_* scripts to a place on your C<$PATH>
-
-=item * create a table named sql_catalog. a script for Postgresql is provided.
-
-=back
+See the README in the home directory of the distribution.
 
 =head1 What SQL::Catalog does
 
 It stores each query in a database table. I could have gone for
-something more fancy in database design but wanted to maintain
+something more normalized and exquisite in database design but wanted to 
+maintain 
 database independence without requiring extra tools for schema
 creation and database use. 
 
-The queries are stored in this table:
+Right now we have schema creation and SQL code which works for Informix and
+Postgresql and welcome more.
+
+The queries are stored in this table 
+(this file is C<db-creation/postgresql.sql>):
 
  CREATE TABLE sql_catalog (
-	query varchar(65535) , # the actual query
-	tables varchar(255) ,  # tables used
-	columns varchar(255) , # fields selected
-	cmd varchar(40) ,      # SELECT, INSERT, UPDATE, etc
-	phold int4   # number of bind_values
+        label varchar(32) ,  # the label queries are stored and looked up with
+        tables varchar(255) , # the tables used in the query
+        columns varchar(255) , # the columns used in the query
+        cmd varchar(40) , # type of sql (SELECT, INSERT, UPDATE, etc)
+        phold int4,  # number of placeholders in the query
+        query varchar(65535) , # the query to be stored
+        CONSTRAINT sql_catalog_pkey PRIMARY KEY (label) # indexing
  );
-
 
 Query field omitted for brevity. It has (wouldya guess) the SQL query.
 
@@ -318,10 +299,30 @@ Query field omitted for brevity. It has (wouldya guess) the SQL query.
  weather_hi    | SELECT | weather.city,weather.date        | weather |     1
  hi_and_low    | SELECT | weather.city                     | weather |     2
 
+=head1 NOTES
+
+=over 4
+
+=item * Read the README for thorough install instructions for various
+databases.
+
+=item * Do NOT end your SQL statements for testing within this framework with 
+a semicolon.
+
+=item * It is entirely feasible (and oh so cool), to have a "query server". Ie,
+a cheap Linux box running MySQL which has no table but sql_catalog on it. And
+all it does is serve the queries. Then your actual "data database" can be on 
+a completely different machine. The idea is that SQL::Catalog connects to
+the table sql_catalog based on its C<DSN> value (see README) while your
+data database connects based on a different DSN.
+
+=back
 
 =head1 AUTHOR
 
 T. M. Brannon, <tbone@cpan.org>
+
+Substantial contribution (and ass-kicking) by Jonathan Leffler.
 
 =head1 SEE ALSO
 
@@ -347,9 +348,5 @@ http://perlmonks.org/index.pl?node=Leashing%20DBI&lastnode_id=96268
 
 =back
 
-=head1 NOTES
-
-Do NOT end your SQL statements for testing within this framework with a 
-semicolon.
 
 =cut

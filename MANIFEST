@@ -1,7 +1,13 @@
 Catalog.pm
 Changes
+db-creation/create-database.pl
+db-creation/informix.sql
+db-creation/postgresql.sql
 MANIFEST
 Makefile.PL
+README
+README.pod
+release.sh
 sql_lair/city,date/weather/1/concrete.sql
 sql_lair/city,date/weather/1/abstract.sql
 sql_lookup
