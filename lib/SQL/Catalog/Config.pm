@@ -7,22 +7,22 @@
 
     package SQL::Catalog::Config;
 
-    $default = 'Pg' ;
+    $default = 'Mysql' ;
 
-    @confs   = ('Pg') ; 
+    @confs   = ('Mysql') ; 
     %param   =
 	(
-         'Pg' => 
+         'Mysql' => 
         {
+         'UserName' => 'root',
          'DataSource' => 'dbi:Pg:dbname=mydb',
-         'UserName' => 'postgres',
          'Password' => '',
-         'name' => 'Postgres',
+         'name' => 'Mysql',
         },
 
 	) ;
 
-    $defaultparam = $param{'Pg'} ;
+    $defaultparam = $param{'Mysql'} ;
 
     1 ;
 

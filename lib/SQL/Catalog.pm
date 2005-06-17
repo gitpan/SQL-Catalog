@@ -14,7 +14,7 @@ use warnings;
 our @EXPORT = qw(sql_lookup);
 
 our $cache;
-our $VERSION = sprintf '%s', q{$Revision: 2.4 $} =~ /\S+\s+(\S+)/ ;
+our $VERSION = sprintf '%s', q{$Revision: 2.5 $} =~ /\S+\s+(\S+)/ ;
 
 
 # Preloaded methods go here.
@@ -43,7 +43,7 @@ consult the README for details.";
 			package => __PACKAGE__,
 			attr => { RaiseError => 1, PrintError => 1 });
 
-    $PApp::SQL::DBH = $dbh->get_dbh;
+    $PApp::SQL::DBH = $DBH->get_dbh;
 
 #    warn "sql_catalog_dbh    ",Dumper($SQL::Catalog::DBH);
 
